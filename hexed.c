@@ -10,8 +10,9 @@
 * - use "notify::cursor-position" for the textview maybe?
 * - add more internationalized strings
 * - debug why tab's color doesn't change
+* - refactor and split into small files
 * 
-*
+* 
 * HexEd is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 * 
 * HexEd is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
@@ -50,14 +51,14 @@ typedef struct _AppState
 {
   GtkWidget *window, *menu, *toolbar, *notebook, *statusbar; 
   GtkWidget *new_button, *open_button, *save_button, *close_button, *quit_button;
-  GtkTextBuffer *buf1, *buf2;
-  GtkWidget *tv1, *tv2;
+//  GtkTextBuffer *buf1, *buf2;
+//  GtkWidget *tv1, *tv2, big_hbox;
 //  gint statusbar_context_id;
   gint uniq; // for the "Untitled #"
  // gchar *filename[FILENAME_MAX + 20];;
  // gchar title[FILENAME_MAX + 20];	// for "FileViewer: <filename>" string
  // gchar *filename;
-  gchar *curr_tab_filespec;
+//  gchar *curr_tab_filespec;
 } AppState;
 
 enum
@@ -84,10 +85,10 @@ char *hex_to_string(const char *input);
 size_t unhex(gchar *dest, gchar *src, gsize buff_len);
 
 // Tab related protos
-void open_new_tab (gpointer data, gchar * filename);
-void on_tab_close ( GtkButton *, GtkNotebook *);
-void red_update_tablabel ( GtkButton   *button, GtkNotebook *notebook );
-void black_update_tablabel ( GtkButton   *button, GtkNotebook *notebook );
+void open_new_tab (gpointer, gchar * filename);
+void on_tab_close ( GtkWidget *, gpointer);
+void red_update_tablabel ( GtkButton *, gpointer );
+void black_update_tablabel ( GtkButton *, gpointer );
 
 
 // Statusbar related
@@ -102,20 +103,20 @@ gboolean delete_event (GtkWidget *, GdkEvent *, gpointer data);
 //static void write_entry (GtkEntry *, const gchar *);
 
 // Toolbar related 
-void on_new_button (GtkWidget * widget, gpointer data);
-void on_open_button (GtkWidget * widget, gpointer data);
-void on_save_button (GtkWidget * widget, gpointer data);
-void on_save_all_button (GtkWidget * widget, gpointer data);
+void on_new_button (GtkWidget *, gpointer);
+void on_open_button (GtkWidget *, gpointer);
+void on_save_button (GtkWidget *, gpointer);
+void on_save_all_button (GtkWidget *, gpointer);
 
 // Menu related
-void on_menu_activate       ( GtkMenuItem *, GtkWindow *);
-void on_save (GtkMenuItem *menu_item, gpointer data);
-void on_save_as (GtkMenuItem *menu_item, gpointer data);
-void show_about(GtkWidget *widget, gpointer data);
+void on_menu_activate       ( GtkMenuItem *, gpointer data);
+void on_save (GtkWidget *, gpointer);
+void on_save_as (GtkWidget *, gpointer);
+void show_about(GtkWidget *, gpointer);
 
 gint show_question(GtkWidget *widget, gpointer window);
 
-void refresh_title (AppState *appState);
+void refresh_title (GtkWidget *,gpointer);
 void on_window_destroy      ( GtkWidget *, gpointer);
 
 void
@@ -300,28 +301,28 @@ main (int argc, char *argv[])
     
     g_signal_connect         (G_OBJECT (save_item), "activate",
 	                            G_CALLBACK (on_save), 
-                              (GtkWindow*) appState.window);
+                              (gpointer) &appState);
 
     g_signal_connect_swapped (G_OBJECT (exit_item), "activate",
 	                            G_CALLBACK (on_window_destroy), 
-                              (gpointer) appState.window);
+                              (gpointer) &appState);
 
     g_signal_connect         (G_OBJECT (hex_item), "activate",
 	                            G_CALLBACK (on_menu_activate),
-                              (GtkWindow*) appState.window);
+                              (gpointer) &appState);
                               
     g_signal_connect         (G_OBJECT (ascii_item), "activate",
 	                            G_CALLBACK (on_menu_activate),
-                              (GtkWindow*) appState.window);
+                              (gpointer) &appState);
 
                               
     g_signal_connect         (G_OBJECT (query_item), "activate",
 	                            G_CALLBACK (on_menu_activate),
-                              (GtkWindow*) appState.window);
+                              (gpointer) &appState);
 
     g_signal_connect         (G_OBJECT (about_tool_item), "activate",
 	                            G_CALLBACK (show_about),
-                              (GtkWindow*) appState.window);
+                              (gpointer) &appState);
    
    //gtk_widget_show (menu);   
     gtk_box_pack_start (GTK_BOX (vbox), appState.menu, FALSE, FALSE, 0);
@@ -533,41 +534,70 @@ open_new_tab (gpointer data, gchar *filespec)
  
 
     big_hbox = gtk_hbox_new (FALSE, 0);
-      hboxc = gtk_hbox_new (FALSE, 0);
+  
 
-        appState->tv1 = tv1 = gtk_text_view_new();
-    appState->buf1 = buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW(tv1));
+//        appState->tv1 = 
+	tv1 = gtk_text_view_new();
+//    appState->buf1 = 
+	buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW(tv1));
 
-    appState->tv2 = tv2 = gtk_text_view_new();
-    appState->buf2 = buffer2 = gtk_text_view_get_buffer (GTK_TEXT_VIEW(tv2));
+//    appState->tv2 = 
+	tv2 = gtk_text_view_new();
+//    appState->buf2 = 
+	buffer2 = gtk_text_view_get_buffer (GTK_TEXT_VIEW(tv2));
 
-
+ gint page;
+page = gtk_notebook_get_current_page (GTK_NOTEBOOK(appState->notebook));
 if (filespec == NULL ){
     appState->uniq++;
     filename = g_strdup_printf("Untitled %d",appState->uniq);
 //     printf("Filename: %s\n", filename);
-    //filename =  g_strdup(str);
+    filespec = filename;
    //     filespec_label = gtk_label_new (filename);
    //      gtk_widget_hide(filespec_label);
+/*    
     gtk_notebook_set_tab_label_text(GTK_NOTEBOOK(appState->notebook), big_hbox, filename);
          	gtk_notebook_set_menu_label_text (GTK_NOTEBOOK (appState->notebook), big_hbox, filename);
-        	    g_object_set_data (G_OBJECT(appState->tv1), "filespec", NULL); 
+        	    g_object_set_data (G_OBJECT(appState->notebook), page, NULL); 
 
+*/
+  printf("processing empty filespec\n");
+    contents = g_strdup("                "); // just a dummy, so that the textviews look ok.
+      nBytesInBuf = strlen(contents);
+ // and now clear it.
+	memset(contents, 0x00, 0x10);
+      printf("Empty...nBytesInBuf = %d\n", (int) nBytesInBuf); 
+
+//g_print("Filespec %s\n", (char *) g_object_get_data (G_OBJECT(), "filespec"));
          	
 }else{
       filename =  g_strdup(g_basename(filespec));
+    /* Use the filename to read its contents into a gchar* string contents */
+    if (! g_file_get_contents( filespec, &contents, &nBytesInBuf, &error)) {
+        g_printf("%s\n", error->message);
+        g_clear_error(&error);
+        exit(1);
+    }
+         printf("Normal...nBytesInBuf = %d\n", (int)nBytesInBuf); 
       //printf("Filename: %s\n", filename);
             //  filespec_label = gtk_label_new (filespec);
          //gtk_widget_hide(filespec_label);
-         gtk_notebook_set_tab_label_text(GTK_NOTEBOOK(appState->notebook), big_hbox, filespec);
+/*
+        gtk_notebook_set_tab_label_text(GTK_NOTEBOOK(appState->notebook), big_hbox, filespec);
          gtk_notebook_set_menu_label_text (GTK_NOTEBOOK(appState->notebook), big_hbox, filespec);
-                  	    g_object_set_data (G_OBJECT(appState->tv1), "filespec", filespec); 
+                  	    g_object_set_data (G_OBJECT(appState->notebook), page, filespec); 
+                  	    g_print("Filespec %s\n", (char *) g_object_get_data (G_OBJECT(appState->notebook), "filespec"));
+*/
 }
+
+
+
+
 
 //  printf("make tabs appState: %d filename: %s\n", appState, filename );
 
 
-
+    hboxc = gtk_hbox_new (FALSE, 0);
 
       tab_label = gtk_label_new (filename);
   
@@ -583,31 +613,18 @@ if (filespec == NULL ){
       //     GtkWidget *tab_close = gtk_label_new ("test");
           
      
- //    g_signal_connect (G_OBJECT (tab_close), "clicked", G_CALLBACK (on_tab_close), GTK_NOTEBOOK (appState->notebook));
+   g_signal_connect (G_OBJECT (tab_close), "clicked", G_CALLBACK (on_tab_close), appState);
      
      
 
-      dnd_dest_setup( appState->tv1);
-     dnd_dest_setup( appState->tv2);
+      dnd_dest_setup( tv1);
+     dnd_dest_setup( tv2);
     
 //    GtkTextTagTable *tagTab = gtk_text_buffer_get_tag_table( gtk_text_view_get_buffer(GTK_TEXT_VIEW (appState->tv2)));
 //buffer = gtk_text_buffer_new(tagTab);
 //gtk_text_buffer_get_tag_table (GTK_TEXT_VIEW (appState->tv1), buffer);
 
-if (filespec != NULL){
-    /* Use the filename to read its contents into a gchar* string contents */
-    if (! g_file_get_contents( filespec, &contents, &nBytesInBuf, &error)) {
-        g_printf("%s\n", error->message);
-        g_clear_error(&error);
-        exit(1);
-    }
-         printf("Normal...nBytesInBuf = %d\n", (int)nBytesInBuf); 
-   } else { 
-  printf("processing empty filespec\n");
-    contents = g_strdup("                              "); // just a dummy, so that the textviews look ok.
-      nBytesInBuf = strlen(contents); 
-      printf("Empty...nBytesInBuf = %d\n", (int) nBytesInBuf); 
-} 
+
     /* Success, so copy contents into buffer and free the contents and
        filename strings
     */
@@ -630,7 +647,7 @@ content2 = g_malloc( nBytesInBuf + nBytesInBuf/LINE_LEN  + LINE_LEN +2);
 // g_print("before asciiPrint\n");       
   content2 = asciiPrint(content2, contents, nBytesInBuf);
 //  content2[nBytesInBuf+1] = "\0";
- g_print("after asciiPrint\n");
+// g_print("after asciiPrint\n");
 //     g_print ("after asciiPrint content2: %s\n", content2 );
   //       printf("contents1:%s\n", contents);
     //           printf("destascii1:%s\n", content2);
@@ -809,9 +826,9 @@ g_signal_connect (buffer, "notify::cursor-position",
   g_signal_connect_object(buffer, "mark_set", 
         G_CALLBACK(mark_set_callback), appState->statusbar, 0);
 
-  g_signal_connect_object(buffer, "modified-changed",
-       G_CALLBACK(red_update_tablabel), buffer, 0);
-       
+/*  g_signal_connect_object(buffer, "modified-changed",
+       G_CALLBACK(red_update_tablabel), appState, 0);
+  */     
 
 
     hbox = gtk_hbox_new (FALSE, 0);
@@ -848,19 +865,22 @@ gtk_widget_show_all (hboxc);
  gint tab = gtk_notebook_append_page (GTK_NOTEBOOK (appState->notebook), big_hbox , hboxc );    
       // Now, let's switch to our new tab (it may be a nice config option)
       gtk_notebook_set_current_page(GTK_NOTEBOOK (appState->notebook), tab);    
+GtkWidget *taby = gtk_notebook_get_nth_page (GTK_NOTEBOOK (appState->notebook), tab);
+	g_object_set_data (G_OBJECT(taby), "buffer", buffer);
 
-g_signal_connect (G_OBJECT (tab_close), "clicked", G_CALLBACK (on_tab_close), GTK_NOTEBOOK (appState->notebook));
+      // gtk_notebook_set_tab_label_text(GTK_NOTEBOOK(appState->notebook), taby, filespec);
+         gtk_notebook_set_menu_label_text (GTK_NOTEBOOK(appState->notebook), taby, filespec);
+                  	    g_object_set_data (G_OBJECT(taby), "filespec", filespec); 
+                  	    g_print("Filespec %s\n", (char *) g_object_get_data (G_OBJECT(taby), "filespec"));
+
+// g_signal_connect (G_OBJECT (tab_close), "clicked", G_CALLBACK (on_tab_close), appState);
+
+//g_signal_connect(G_OBJECT(appState->notebook), "switch-page",
+  //          G_CALLBACK(refresh_title), appState);
 
 gtk_notebook_set_tab_reorderable (GTK_NOTEBOOK (appState->notebook), big_hbox, TRUE);
 gtk_notebook_set_tab_detachable (GTK_NOTEBOOK (appState->notebook), big_hbox, TRUE);
 
-  if (tab){
-//printf("append ok appState: %d filename: %s\n", appState, filename );
-   } else {
-	   
-	//  printf("append fail appState: %d filename: %s\n", appState, filename ); 
-	   
-	}  
 	
 	// free your strings and remember to be thankful for g_strconcat and g_strdup_printf !!!
    g_free(content1);
@@ -890,8 +910,10 @@ gtk_text_view_notify_cursor_position(GtkTextBuffer *buffer, GParamSpec *pspec,gp
 
 
 void on_menu_activate       ( GtkMenuItem * menu_item, 
-                                     GtkWindow * parent)
+                                      gpointer data)
 {
+
+AppState *appState = (AppState*) data;
 
 // Read the comment in the main program
 #if GTK_MINOR_VERSION < 16 
@@ -901,7 +923,7 @@ void on_menu_activate       ( GtkMenuItem * menu_item,
 #endif
 
     GtkWidget *dialog; 
-    dialog = gtk_message_dialog_new (parent, GTK_DIALOG_MODAL,
+    dialog = gtk_message_dialog_new (GTK_WINDOW(appState->window), GTK_DIALOG_MODAL,
                                      GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
                                    "%s not yet implemented", label);
     gtk_window_set_title (GTK_WINDOW (dialog), "Menu Selection");
@@ -914,17 +936,6 @@ void on_menu_activate       ( GtkMenuItem * menu_item,
 
 }
 
-void push_item( GtkWidget *widget,
-                gpointer   data )
-{
-  static int count = 1;
-  char buff[20];
-
-  g_snprintf(buff, 20, "Item %d", count++);
-  gtk_statusbar_push( GTK_STATUSBAR(widget), GPOINTER_TO_INT(data), buff);
-
-  return;
-}
 
 void update_statusbar(GtkTextBuffer *buffer, GtkStatusbar  *statusbar)
 {
@@ -953,7 +964,8 @@ void
 mark_set_callback(GtkTextBuffer *buffer, GtkTextIter *new_location, GtkTextMark *mark,
     gpointer data)
 {
-  update_statusbar(buffer, GTK_STATUSBAR(data));
+	// *statusbar smuggled in data  
+	update_statusbar(buffer, GTK_STATUSBAR(data));
 }
 
 
@@ -1106,25 +1118,8 @@ on_new_button (GtkWidget * button, gpointer data)
 	
   AppState *appState = (AppState*) data;  
 
-   
-//  appState = GINT_TO_POINTER(data);
-
-
-  /* Use the filename to read its contents into a gchar* string contents 
-  if (!g_file_get_contents (filespec, &contents2, &nBytesInBuf, &error))
-    {
-      g_printf ("%s\n", error->message);
-      g_clear_error (&error);
-      g_free (filespec);
-      exit (1);
-    }
-   Success, so copy contents into buffer and free the contents and
-     filename strings
-   */
-
-   
+// Let's just open a tab with a null filename  
   open_new_tab (appState, NULL);
-
 
   gtk_widget_show_all(appState->window);
 
@@ -1192,21 +1187,29 @@ on_open_button (GtkWidget * button, gpointer data)
 
 }
 
-void on_save (GtkMenuItem *menu_item, gpointer data) {
+void on_save (GtkWidget *menu_item, gpointer data) {
    AppState *appState = (AppState*) data; 
+ gint page;
+ page = gtk_notebook_get_current_page (GTK_NOTEBOOK(appState->notebook));
+
+GtkWidget *taby = gtk_notebook_get_nth_page (GTK_NOTEBOOK (appState->notebook), page);
+	
+
+// if (appState->tv1 !=NULL) {
 	    
-  if (g_object_get_data (G_OBJECT(appState->tv1), "filespec") == NULL) {
-    on_save_as (NULL, NULL); // user has yet to choose a filename
+  if (g_object_get_data (G_OBJECT(taby), "filespec") == NULL) {
+    on_save_as (menu_item, data); // user has yet to choose a filename
   } else {
     // Save the text using the given filename.
-
+g_print("Writing to: %s\n", (char *) g_object_get_data (G_OBJECT(taby), "filespec"));
 //    FILE *file = fopen ("test.out", "w");
-    FILE *file = fopen (g_object_get_data (G_OBJECT(appState->tv1), "filespec"), "w");
-//g_print("Writing to %s\n", g_object_get_data (G_OBJECT(appState->tv1), "filespec"));
+    FILE *file = fopen (g_object_get_data (G_OBJECT(taby), "filespec"), "w");
+
+
 
     // buffer's reference count not incremented
     GtkTextIter start, end;
-    gtk_text_buffer_get_bounds (appState->buf1, &start, &end);
+    gtk_text_buffer_get_bounds (g_object_get_data (G_OBJECT(taby), "buffer"), &start, &end);
     char *text = gtk_text_iter_get_text (&start, &end);
     char *dest = g_malloc(strlen(text)+2);
     int d_len = 0;
@@ -1222,14 +1225,19 @@ void on_save (GtkMenuItem *menu_item, gpointer data) {
     g_free (text);
     g_free (dest);
     fclose (file);
-  }
+//  }
+ }
 }
 
-void on_save_as (GtkMenuItem *menu_item, gpointer data) {
+void on_save_as (GtkWidget *menu_item, gpointer data) {
 	
 	 AppState *appState = (AppState*) data; 
 	gchar * filename = NULL;
-  
+gint page;
+  page = gtk_notebook_get_current_page(GTK_NOTEBOOK(appState->notebook));
+GtkWidget *taby = gtk_notebook_get_nth_page(GTK_NOTEBOOK(appState->notebook), page);
+
+
   GtkWidget *dialog = gtk_file_chooser_dialog_new (
                             NULL, // title
                             GTK_WINDOW (appState->window), // parent
@@ -1242,26 +1250,36 @@ void on_save_as (GtkMenuItem *menu_item, gpointer data) {
   if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT) {
     g_free (filename); // freeing NULL has no effect
     filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
-    refresh_title(appState);
-    g_object_set_data (G_OBJECT(appState->tv1), "filespec", filename); 
-    on_save (NULL, NULL); // now that the filename is set, save the file
+//    refresh_title(menu_item, appState);
+    g_object_set_data (G_OBJECT(taby), "filespec", filename); 
+    on_save (menu_item, data); // now that the filename is set, save the file
   }
   gtk_widget_destroy (dialog); // implicitly hides dialog
 }
 
 // Updates the main window's title, based on the filename.
-void refresh_title (AppState *appState) {
+void refresh_title (GtkWidget *child ,gpointer data) {
+gint page;
+	 AppState *appState = (AppState*) data; 
+    
+	page = gtk_notebook_get_current_page(GTK_NOTEBOOK(appState->notebook));
+GtkWidget *taby = gtk_notebook_get_nth_page(GTK_NOTEBOOK(appState->notebook), page);
+	
   static const char *APP_TITLE = " - Hex Editor";
   gchar *title;
-  if (appState->curr_tab_filespec == NULL) {
+  if (g_object_get_data (G_OBJECT(appState->notebook), "filespec") == NULL) {
     // Set the window title when the document isn't saved.
     static const char *EMPTY_TITLE = "Untitled";
     title = g_strdup_printf ("%s%s",EMPTY_TITLE , APP_TITLE);        
             
   } else {
     // Set the window title when the document is saved.
-    title = g_strdup_printf ("%s%s", appState->curr_tab_filespec , APP_TITLE);   
+    title = g_strdup_printf ("%s%s", (char *) g_object_get_data (G_OBJECT(taby), "filespec") , APP_TITLE);
+
+   
   }
+  gtk_notebook_set_tab_label_text(GTK_NOTEBOOK(appState->notebook), taby, basename((char *) g_object_get_data (G_OBJECT(taby), "filespec")));
+
   gtk_window_set_title (GTK_WINDOW (appState->window), title);
   free (title);
 }
@@ -1272,42 +1290,53 @@ void refresh_title (AppState *appState) {
 *******************************************************************************/
 
 /* Closes a tab */
-void on_tab_close      ( GtkButton   *button, GtkNotebook *notebook )
+void on_tab_close      ( GtkWidget   *widget, gpointer data )
 {
     gint page;
+	 AppState *appState = (AppState*) data; 
+
 
 
     // for currently active page
   //  page = gtk_notebook_get_current_page(notebook);
   
   // we want to get rid of the specific page rather than the currently active
-    page =  gtk_notebook_page_num (notebook, GTK_WIDGET(button));
-    gtk_notebook_remove_page (notebook, page);
+// page = gtk_notebook_page_num (GTK_NOTEBOOK(appState->notebook), widget );
+  //  page =  gtk_notebook_get_current_page (GTK_NOTEBOOK(appState->notebook));
+//gtk_notebook_get_current_page(GTK_NOTEBOOK (appState->notebook), page);
+	page = gtk_notebook_get_current_page(GTK_NOTEBOOK(appState->notebook));
+//GtkWidget *taby = gtk_notebook_get_nth_page(GTK_NOTEBOOK(appState->notebook), page);
+//    g_print("close tabpage: %d\n",page );
+    gtk_notebook_remove_page (GTK_NOTEBOOK(appState->notebook), page);
     
     /* Need to refresh the widget -- 
      This forces the widget to redraw itself. */
-    gtk_widget_draw(GTK_WIDGET(notebook), NULL);
+    gtk_widget_draw(GTK_WIDGET(GTK_NOTEBOOK(appState->notebook)), NULL);
 }
 
 
-void red_update_tablabel  ( GtkButton   *button, GtkNotebook *notebook ){
+void red_update_tablabel  ( GtkButton   *button, gpointer data ){
     gint page;
+	 AppState *appState = (AppState*) data; 
     
-	page = gtk_notebook_get_current_page(notebook);	
-    GtkWidget *tab = gtk_notebook_get_nth_page(notebook, page);
-    GtkWidget *tablabel = gtk_notebook_get_tab_label(notebook, tab);
+	page = gtk_notebook_get_current_page(GTK_NOTEBOOK(appState->notebook));	
+    GtkWidget *tab = gtk_notebook_get_nth_page(GTK_NOTEBOOK(appState->notebook), page);
+    GtkWidget *tablabel = gtk_notebook_get_tab_label(GTK_NOTEBOOK(appState->notebook), tab);
     GdkColor color;
     gdk_color_parse ("red", &color);
     gtk_widget_modify_fg (tablabel, GTK_STATE_NORMAL, &color);
     g_print("red_update_tablabel\n");
 }
 
-void black_update_tablabel  ( GtkButton   *button, GtkNotebook *notebook ){
+void black_update_tablabel  ( GtkButton   *button, gpointer data ){
     gint page;
-    
-	page = gtk_notebook_get_current_page(notebook);	
-    GtkWidget *tab = gtk_notebook_get_nth_page(notebook, page);
-    GtkWidget *tablabel = gtk_notebook_get_tab_label(notebook, tab);
+    	 AppState *appState = (AppState*) data; 
+
+	page = gtk_notebook_get_current_page(GTK_NOTEBOOK(appState->notebook));
+
+    GtkWidget *tab = gtk_notebook_get_nth_page(GTK_NOTEBOOK(appState->notebook), page);
+    GtkWidget *tablabel = gtk_notebook_get_tab_label(GTK_NOTEBOOK(appState->notebook), tab);
+	
     GdkColor color;
     gdk_color_parse ("black", &color);
     gtk_widget_modify_fg (tablabel, GTK_STATE_NORMAL, &color);
